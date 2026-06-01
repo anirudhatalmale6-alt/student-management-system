@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
     price       REAL NOT NULL,
     category    TEXT,
     available   INTEGER DEFAULT 1,
+    is_healthy  INTEGER DEFAULT 0,
     date        TEXT DEFAULT (date('now'))
 );
 

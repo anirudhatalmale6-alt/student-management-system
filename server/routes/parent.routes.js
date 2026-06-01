@@ -148,4 +148,12 @@ router.post('/children/:id/topup', (req, res) => {
   }
 });
 
+router.get('/menu', (req, res) => {
+  try {
+    res.json(db.prepare("SELECT item_name, price, category, is_healthy FROM menu_items WHERE available = 1 ORDER BY category, item_name").all());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

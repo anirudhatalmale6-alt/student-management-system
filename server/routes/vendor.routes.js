@@ -84,10 +84,10 @@ router.get('/menu', (req, res) => {
 
 router.post('/menu', (req, res) => {
   try {
-    const { item_name, price, category } = req.body;
+    const { item_name, price, category, is_healthy } = req.body;
     const result = db.prepare(
-      'INSERT INTO menu_items (vendor_id, item_name, price, category) VALUES (?, ?, ?, ?)'
-    ).run(req.user.id, item_name, price, category || 'other');
+      'INSERT INTO menu_items (vendor_id, item_name, price, category, is_healthy) VALUES (?, ?, ?, ?, ?)'
+    ).run(req.user.id, item_name, price, category || 'other', is_healthy ? 1 : 0);
     const item = db.prepare('SELECT * FROM menu_items WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(item);
   } catch (err) {
@@ -97,10 +97,10 @@ router.post('/menu', (req, res) => {
 
 router.put('/menu/:id', (req, res) => {
   try {
-    const { item_name, price, category, available } = req.body;
+    const { item_name, price, category, available, is_healthy } = req.body;
     db.prepare(
-      'UPDATE menu_items SET item_name=?, price=?, category=?, available=? WHERE id=? AND vendor_id=?'
-    ).run(item_name, price, category, available ? 1 : 0, req.params.id, req.user.id);
+      'UPDATE menu_items SET item_name=?, price=?, category=?, available=?, is_healthy=? WHERE id=? AND vendor_id=?'
+    ).run(item_name, price, category, available ? 1 : 0, is_healthy ? 1 : 0, req.params.id, req.user.id);
     const item = db.prepare('SELECT * FROM menu_items WHERE id = ?').get(req.params.id);
     if (!item) return res.status(404).json({ error: 'Item not found' });
     res.json(item);

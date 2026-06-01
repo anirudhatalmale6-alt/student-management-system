@@ -184,6 +184,11 @@ router.get('/gps/live', (req, res) => {
         GROUP BY bus_route_id
       )
     `).all();
+    rows.forEach(r => {
+      r.students = db.prepare(
+        'SELECT id, full_name, student_id_code, class_name FROM students WHERE bus_route_id = ?'
+      ).all(r.bus_route_id);
+    });
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
