@@ -1,0 +1,4 @@
+paho-mqtt==1.6.1
+mfrc522==0.0.7
+RPi.GPIO==0.7.1
+gpsd-py3==0.3.0

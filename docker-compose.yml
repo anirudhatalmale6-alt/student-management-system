@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: unless-stopped
+
+  # For Raspberry Pi, use:
+  # sudo apt install mosquitto mosquitto-clients
+  # This docker-compose is for development on a laptop
