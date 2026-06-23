@@ -34,9 +34,39 @@ unsigned long lastTapTime = 0;
 const unsigned long TAP_COOLDOWN = 3000;
 int tapCount = 0;
 
+bool initRFID() {
+  digitalWrite(RST_PIN, LOW);
+  delay(50);
+  digitalWrite(RST_PIN, HIGH);
+  delay(50);
+
+  rfid.PCD_Init();
+  delay(100);
+  rfid.PCD_AntennaOn();
+  delay(50);
+
+  byte v = rfid.PCD_ReadRegister(rfid.VersionReg);
+  Serial.print("RFID firmware version: 0x");
+  Serial.println(v, HEX);
+
+  if (v == 0x00 || v == 0xFF) {
+    Serial.println("ERROR: Cannot communicate with RC522!");
+    Serial.println("Check wiring: SDA->D8, SCK->D5, MOSI->D7, MISO->D6, RST->D1, 3.3V, GND");
+    return false;
+  }
+
+  rfid.PCD_WriteRegister(rfid.RFCfgReg, (rfid.PCD_ReadRegister(rfid.RFCfgReg) & ~0x70) | 0x70);
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+  Serial.println("Antenna gain set to MAX");
+  return true;
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("\n=== School Gate Station Starting ===");
+
+  pinMode(RST_PIN, OUTPUT);
+  digitalWrite(RST_PIN, LOW);
 
   Wire.begin(4, 0);
   lcd.init();
@@ -47,7 +77,29 @@ void setup() {
   lcd.print("Starting...");
 
   SPI.begin();
-  rfid.PCD_Init();
+  delay(200);
+
+  bool rfidOk = false;
+  for (int attempt = 1; attempt <= 3; attempt++) {
+    Serial.print("RFID init attempt ");
+    Serial.println(attempt);
+    if (initRFID()) {
+      rfidOk = true;
+      break;
+    }
+    delay(500);
+  }
+
+  if (!rfidOk) {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("RFID ERROR!");
+    lcd.setCursor(0, 1);
+    lcd.print("Check wiring");
+    Serial.println("RFID FAILED after 3 attempts!");
+  } else {
+    Serial.println("RFID reader initialized OK");
+  }
 
   connectWiFi();
 

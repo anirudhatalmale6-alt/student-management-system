@@ -22,7 +22,7 @@ const char* TAP_POINT     = "class_in";
 
 #define SS_PIN   15
 #define RST_PIN  5
-#define LED_PIN  2  // Built-in LED (active LOW on ESP8266)
+#define LED_PIN  2
 
 MFRC522 rfid(SS_PIN, RST_PIN);
 WiFiClient espClient;
@@ -31,23 +31,67 @@ PubSubClient mqtt(espClient);
 unsigned long lastTapTime = 0;
 const unsigned long TAP_COOLDOWN = 3000;
 
+bool initRFID() {
+  digitalWrite(RST_PIN, LOW);
+  delay(50);
+  digitalWrite(RST_PIN, HIGH);
+  delay(50);
+
+  rfid.PCD_Init();
+  delay(100);
+  rfid.PCD_AntennaOn();
+  delay(50);
+
+  byte v = rfid.PCD_ReadRegister(rfid.VersionReg);
+  Serial.print("RFID firmware version: 0x");
+  Serial.println(v, HEX);
+
+  if (v == 0x00 || v == 0xFF) {
+    Serial.println("ERROR: Cannot communicate with RC522!");
+    Serial.println("Check wiring: SDA->D8, SCK->D5, MOSI->D7, MISO->D6, RST->D1, 3.3V, GND");
+    return false;
+  }
+
+  rfid.PCD_WriteRegister(rfid.RFCfgReg, (rfid.PCD_ReadRegister(rfid.RFCfgReg) & ~0x70) | 0x70);
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+  Serial.println("Antenna gain set to MAX");
+  return true;
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("\n=== Classroom Station Starting ===");
 
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);  // LED off (active LOW)
+  pinMode(RST_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
+  digitalWrite(RST_PIN, LOW);
 
   SPI.begin();
-  rfid.PCD_Init();
-  Serial.println("RFID reader initialized");
+  delay(200);
+
+  bool rfidOk = false;
+  for (int attempt = 1; attempt <= 3; attempt++) {
+    Serial.print("RFID init attempt ");
+    Serial.println(attempt);
+    if (initRFID()) {
+      rfidOk = true;
+      break;
+    }
+    delay(500);
+  }
+
+  if (!rfidOk) {
+    Serial.println("RFID FAILED after 3 attempts! Check wiring!");
+  } else {
+    Serial.println("RFID reader initialized OK");
+  }
 
   connectWiFi();
 
   mqtt.setServer(MQTT_SERVER, MQTT_PORT);
   connectMQTT();
 
-  // Blink LED 3 times to indicate ready
   for (int i = 0; i < 3; i++) {
     digitalWrite(LED_PIN, LOW);
     delay(200);

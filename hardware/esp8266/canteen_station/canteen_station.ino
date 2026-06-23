@@ -32,7 +32,34 @@ WiFiClient espClient;
 PubSubClient mqtt(espClient);
 
 unsigned long lastTapTime = 0;
-const unsigned long TAP_COOLDOWN = 5000;  // 5 seconds for payment
+const unsigned long TAP_COOLDOWN = 5000;
+
+bool initRFID() {
+  digitalWrite(RST_PIN, LOW);
+  delay(50);
+  digitalWrite(RST_PIN, HIGH);
+  delay(50);
+
+  rfid.PCD_Init();
+  delay(100);
+  rfid.PCD_AntennaOn();
+  delay(50);
+
+  byte v = rfid.PCD_ReadRegister(rfid.VersionReg);
+  Serial.print("RFID firmware version: 0x");
+  Serial.println(v, HEX);
+
+  if (v == 0x00 || v == 0xFF) {
+    Serial.println("ERROR: Cannot communicate with RC522!");
+    Serial.println("Check wiring: SDA->D8, SCK->D5, MOSI->D7, MISO->D6, RST->D1, 3.3V, GND");
+    return false;
+  }
+
+  rfid.PCD_WriteRegister(rfid.RFCfgReg, (rfid.PCD_ReadRegister(rfid.RFCfgReg) & ~0x70) | 0x70);
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+  Serial.println("Antenna gain set to MAX");
+  return true;
+}
 
 void setup() {
   Serial.begin(115200);
@@ -40,12 +67,30 @@ void setup() {
 
   pinMode(LED_PIN, OUTPUT);
   pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(RST_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
   digitalWrite(BUZZER_PIN, LOW);
+  digitalWrite(RST_PIN, LOW);
 
   SPI.begin();
-  rfid.PCD_Init();
-  Serial.println("RFID reader initialized");
+  delay(200);
+
+  bool rfidOk = false;
+  for (int attempt = 1; attempt <= 3; attempt++) {
+    Serial.print("RFID init attempt ");
+    Serial.println(attempt);
+    if (initRFID()) {
+      rfidOk = true;
+      break;
+    }
+    delay(500);
+  }
+
+  if (!rfidOk) {
+    Serial.println("RFID FAILED after 3 attempts! Check wiring!");
+  } else {
+    Serial.println("RFID reader initialized OK");
+  }
 
   connectWiFi();
 
@@ -53,7 +98,6 @@ void setup() {
   mqtt.setCallback(mqttCallback);
   connectMQTT();
 
-  // Ready beep
   digitalWrite(BUZZER_PIN, HIGH);
   delay(100);
   digitalWrite(BUZZER_PIN, LOW);
